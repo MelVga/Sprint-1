@@ -1,12 +1,23 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  obtenerProductos,
+  obtenerPresupuesto,
+  guardarPresupuesto as guardarPresupuestoDB,
+} from '@/services/db.js'
 
 const router = useRouter()
 
 const presupuesto = ref(0)
+const productos = ref([])
 const nuevoPresupuesto = ref('')
 const mensaje = ref('')
+
+onMounted(() => {
+  presupuesto.value = obtenerPresupuesto()
+  productos.value = obtenerProductos()
+})
 
 const guardarPresupuesto = () => {
   const cantidad = Number(nuevoPresupuesto.value)
@@ -17,6 +28,7 @@ const guardarPresupuesto = () => {
   }
 
   presupuesto.value = cantidad
+  guardarPresupuestoDB(cantidad)
   nuevoPresupuesto.value = ''
   mensaje.value = 'Presupuesto guardado correctamente.'
 }
@@ -26,6 +38,52 @@ const presupuestoFormateado = computed(() => {
     style: 'currency',
     currency: 'MXN',
   })
+})
+
+// Calcula el costo total de los productos agotados
+const gastosRegistrados = computed(() => {
+  return productos.value
+    .filter((producto) => Number(producto.cantidad) === 0)
+    .reduce((total, producto) => total + (Number(producto.costo) || 0), 0)
+})
+
+// Calcula cuánto dinero queda disponible
+const disponible = computed(() => {
+  return presupuesto.value - gastosRegistrados.value
+})
+
+// Formato de moneda para los gastos
+const gastosFormateados = computed(() => {
+  return gastosRegistrados.value.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  })
+})
+
+// Formato de moneda para el dinero disponible
+const disponibleFormateado = computed(() => {
+  return disponible.value.toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  })
+})
+
+// Calcula qué porcentaje del presupuesto se ha utilizado
+const porcentajePresupuesto = computed(() => {
+  if (presupuesto.value <= 0) return 0
+
+  return Math.min(
+    (gastosRegistrados.value / presupuesto.value) * 100,
+    100
+  )
+})
+
+// Detecta si los gastos superan el presupuesto
+const presupuestoExcedido = computed(() => {
+  return (
+    presupuesto.value > 0 &&
+    gastosRegistrados.value > presupuesto.value
+  )
 })
 
 const volverInicio = () => {
@@ -88,21 +146,39 @@ const volverInicio = () => {
         <h3>Resumen del mes</h3>
 
         <div class="datos">
-          <div>
-            <p>Presupuesto</p>
-            <strong>{{ presupuestoFormateado }}</strong>
-          </div>
+  <div>
+    <p>Presupuesto</p>
+    <strong>{{ presupuestoFormateado }}</strong>
+  </div>
 
-          <div>
-            <p>Gastos registrados</p>
-            <strong>$0.00</strong>
-          </div>
+  <div>
+    <p>Gastos registrados</p>
+    <strong>{{ gastosFormateados }}</strong>
+  </div>
 
-          <div>
-            <p>Disponible</p>
-            <strong>{{ presupuestoFormateado }}</strong>
-          </div>
-        </div>
+  <div>
+    <p>Disponible</p>
+    <strong>{{ disponibleFormateado }}</strong>
+  </div>
+</div>
+
+<div class="presupuesto-progreso">
+  <div class="barra-fondo">
+    <div
+      class="barra-progreso"
+      :class="{ excedido: presupuestoExcedido }"
+      :style="{ width: porcentajePresupuesto + '%' }"
+    ></div>
+  </div>
+
+  <p class="porcentaje">
+    {{ porcentajePresupuesto.toFixed(0) }}% del presupuesto utilizado
+  </p>
+
+  <p v-if="presupuestoExcedido" class="alerta-presupuesto">
+    ⚠️ Has excedido el presupuesto establecido.
+  </p>
+</div>
       </section>
     </main>
   </div>
@@ -270,6 +346,41 @@ input {
 .datos strong {
   color: #2f6b4f;
   font-size: 18px;
+}
+
+.presupuesto-progreso {
+  margin-top: 25px;
+}
+
+.barra-fondo {
+  width: 100%;
+  height: 18px;
+  background: #e5e7eb;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.barra-progreso {
+  height: 100%;
+  background: #2f6b4f;
+  border-radius: 20px;
+  transition: width 0.3s ease;
+}
+
+.barra-progreso.excedido {
+  background: #dc2626;
+}
+
+.porcentaje {
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.alerta-presupuesto {
+  margin-top: 10px;
+  color: #b91c1c;
+  font-weight: 600;
 }
 
 @media (max-width: 650px) {

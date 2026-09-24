@@ -2,6 +2,7 @@
 
 const CLAVE_PRODUCTOS = 'despensa_productos'
 const CLAVE_LISTA_SUPER = 'lista_super_productos'
+const CLAVE_PRESUPUESTO = 'despensa_presupuesto'
 
 // Funciones generales de productos (Mi Despensa)
 export const obtenerProductos = () => {
@@ -21,4 +22,14 @@ export const obtenerListaSuper = () => {
 
 export const guardarListaSuper = (lista) => {
   localStorage.setItem(CLAVE_LISTA_SUPER, JSON.stringify(lista))
+}
+
+// Funciones para el presupuesto
+export const obtenerPresupuesto = () => {
+  const datos = localStorage.getItem(CLAVE_PRESUPUESTO)
+  return datos ? Number(datos) : 0
+}
+
+export const guardarPresupuesto = (presupuesto) => {
+  localStorage.setItem(CLAVE_PRESUPUESTO, String(presupuesto))
 }
