@@ -21,6 +21,11 @@ const incrementarStock = (producto) => {
   guardarProductos(productos.value)
 }
 
+const actualizarCosto = (producto) => {
+  producto.costo = Number(producto.costo) || 0
+  guardarProductos(productos.value)
+}
+
 const marcarComprado = (id) => {
   const producto = productos.value.find(p => p.id === id)
   if (producto) {
@@ -65,6 +70,7 @@ const volverInicio = () => {
                 <th>Producto</th>
                 <th>Categoría</th>
                 <th>Stock Actual</th>
+                <th>Costo estimado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -72,14 +78,39 @@ const volverInicio = () => {
               <tr v-for="item in listaParaElSuper" :key="item.id">
                 <td><strong>{{ item.nombre }}</strong></td>
                 <td>{{ item.categoria }}</td>
+
                 <td>
                   <span class="stock-cero">0 unidades</span>
                 </td>
-                <td class="acciones-celda">
-                  <button class="btn-comprar" @click="marcarComprado(item.id)">✓ Comprado</button>
-                  <button class="btn-stock" @click="incrementarStock(item)" title="Sumar 1">+</button>
-                </td>
-              </tr>
+
+                <td>
+                  <div class="input-costo">
+                  <span>$</span>
+                  <input
+                    v-model.number="item.costo"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    @change="actualizarCosto(item)"
+                   />
+                 </div>
+              </td>
+
+              <td class="acciones-celda">
+                <button class="btn-comprar" @click="marcarComprado(item.id)">
+                  ✓ Comprado
+               </button>
+
+               <button
+                 class="btn-stock"
+                 @click="incrementarStock(item)"
+                 title="Sumar 1"
+               >
+                 +
+               </button>
+             </td>
+             </tr>
             </tbody>
           </table>
         </div>
@@ -114,4 +145,25 @@ th { color: #4b5563; font-size: 13px; background: #f9fafb; }
 .icono-feliz { font-size: 45px; margin-bottom: 10px; }
 .sin-productos h3 { margin: 0 0 6px; color: #1f2937; }
 .sin-productos p { color: #6b7280; margin: 0; font-size: 14px; }
+.input-costo {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.input-costo span {
+  padding-left: 8px;
+  color: #6b7280;
+}
+
+.input-costo input {
+  width: 90px;
+  border: none;
+  padding: 7px;
+  outline: none;
+  font-size: 13px;
+}
 </style>
