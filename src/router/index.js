@@ -35,6 +35,11 @@ const router = createRouter({
       name: 'productos',
       component: ProductosView,
     },
+    {
+    path: '/lista-super',
+    name: 'lista-super',
+    component: () => import('../views/ListaSuperView.vue')
+    }, 
   ],
 })
 

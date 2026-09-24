@@ -11,6 +11,10 @@ const irAPresupuesto = () => {
   router.push('/presupuesto')
 }
 
+const irAListaSuper = () => {
+  router.push('/lista-super')
+}
+
 const cerrarSesion = () => {
   router.push('/')
 }
@@ -31,24 +35,29 @@ const cerrarSesion = () => {
       <section class="bienvenida">
         <h2>¡Bienvenido!</h2>
         <p>
-          Administra los productos de tu despensa y lleva un mejor control de tu presupuesto
-          mensual.
+          Administra los productos de tu despensa, lleva un mejor control de tu presupuesto
+          mensual y revisa tu lista para el súper.
         </p>
       </section>
 
       <section class="opciones">
         <div class="tarjeta" @click="irAProductos">
-          <div class="icono">🛒</div>
           <h3>Mi despensa</h3>
           <p>Registra, consulta y administra los productos disponibles en tu hogar.</p>
           <button>Ver productos</button>
         </div>
 
         <div class="tarjeta" @click="irAPresupuesto">
-          <div class="icono">💰</div>
           <h3>Presupuesto mensual</h3>
           <p>Establece tu presupuesto y lleva un control de los gastos realizados.</p>
           <button>Ver presupuesto</button>
+        </div>
+
+        <!-- Tarjeta para Lista para el Súper (sin icono, centrada y con botón pegadito) -->
+        <div class="tarjeta tarjeta-super" @click="irAListaSuper">
+          <h3>Lista para el Súper</h3>
+          <p>Consulta los productos agotados o por debajo del umbral mínimo.</p>
+          <button class="btn-super">Ver lista del súper</button>
         </div>
       </section>
 
@@ -159,33 +168,34 @@ const cerrarSesion = () => {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   transition: transform 0.2s;
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .tarjeta:hover {
   transform: translateY(-4px);
 }
 
-.icono {
-  font-size: 38px;
-}
-
 .tarjeta h3 {
-  margin: 15px 0 8px;
+  margin: 0 0 8px; /* Ajustado para que empiece limpio arriba sin el icono */
   color: #2f6b4f;
 }
 
 .tarjeta p {
   color: #6b7280;
   line-height: 1.5;
-  min-height: 48px;
+  margin-bottom: 12px; /* Margen corto para acercar el botón */
 }
 
 .tarjeta button {
-  margin-top: 15px;
+  margin-top: 4px; /* Botón bien pegadito al texto */
   background: #2f6b4f;
   color: white;
   border: none;
-  padding: 11px 18px;
+  padding: 10px 18px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
@@ -193,6 +203,19 @@ const cerrarSesion = () => {
 
 .tarjeta button:hover {
   background: #24543e;
+}
+
+/* Tarjeta de Súper en ambas columnas */
+.tarjeta-super {
+  grid-column: span 2;
+}
+
+.btn-super {
+  background: #d97706 !important;
+}
+
+.btn-super:hover {
+  background: #b45309 !important;
 }
 
 .resumen {
@@ -238,6 +261,10 @@ const cerrarSesion = () => {
   .opciones,
   .resumen-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tarjeta-super {
+    grid-column: span 1;
   }
 
   .encabezado {

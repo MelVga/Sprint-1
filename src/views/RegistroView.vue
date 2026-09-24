@@ -1,53 +1,65 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter, RouterLink } from 'vue-router'
 
 const nombre = ref('')
 const correo = ref('')
 const contrasena = ref('')
-const confirmarContrasena = ref('')
 const mensaje = ref('')
-const exito = ref(false)
-
+const router = useRouter()
 
 const registrarUsuario = () => {
-  mensaje.value = ''
-  exito.value = false
-
-  // Validar que todos los campos estén completos
-  if (
-    nombre.value.trim() === '' ||
-    correo.value.trim() === '' ||
-    contrasena.value.trim() === '' ||
-    confirmarContrasena.value.trim() === ''
-  ) {
+  if (!nombre.value.trim() || !correo.value.trim() || !contrasena.value.trim()) {
     mensaje.value = 'Por favor, completa todos los campos.'
     return
   }
 
-  // Validar que las contraseñas coincidan
-  if (contrasena.value !== confirmarContrasena.value) {
-    mensaje.value = 'Las contraseñas no coinciden.'
+  if (!correo.value.includes('@')) {
+    mensaje.value = 'Ingresa un correo electrónico válido.'
     return
   }
 
-  // Registro correcto
-  exito.value = true
-  mensaje.value = 'Usuario registrado correctamente.'
+  // Recuperamos la lista previa de usuarios
+  const usuariosGuardados = JSON.parse(localStorage.getItem('usuarios_despensa')) || []
+
+  // Comprobamos si el correo ya fue registrado antes
+  const correoExiste = usuariosGuardados.some(
+    (u) => u.correo.toLowerCase() === correo.value.trim().toLowerCase()
+  )
+
+  if (correoExiste) {
+    mensaje.value = 'Este correo ya está registrado. Inicia sesión.'
+    return
+  }
+
+  // Creamos y guardamos el nuevo usuario
+  const nuevoUsuario = {
+    id: Date.now(),
+    nombre: nombre.value.trim(),
+    correo: correo.value.trim(),
+    contrasena: contrasena.value
+  }
+
+  usuariosGuardados.push(nuevoUsuario)
+  localStorage.setItem('usuarios_despensa', JSON.stringify(usuariosGuardados))
+
+  alert('¡Cuenta creada con éxito! Ahora puedes iniciar sesión.')
+  router.push('/')
 }
 </script>
 
 <template>
   <div class="registro-page">
     <div class="registro-card">
-      <div class="icono">🛒</div>
+      <div class="icono">📝</div>
 
-      <h1>Crear cuenta</h1>
-      <p class="subtitulo">Regístrate para comenzar a organizar tu despensa</p>
+      <h1>Crear Cuenta</h1>
+      <p class="subtitulo">Regístrate para administrar tu despensa</p>
 
       <form @submit.prevent="registrarUsuario">
         <div class="campo">
-          <label for="nombre">Nombre</label>
-          <input id="nombre" v-model="nombre" type="text" placeholder="Ingresa tu nombre" />
+          <label for="nombre">Nombre completo</label>
+          <input id="nombre" v-model="nombre" type="text" placeholder="Tu nombre" />
         </div>
 
         <div class="campo">
@@ -65,24 +77,12 @@ const registrarUsuario = () => {
           />
         </div>
 
-        <div class="campo">
-          <label for="confirmar">Confirmar contraseña</label>
-          <input
-            id="confirmar"
-            v-model="confirmarContrasena"
-            type="password"
-            placeholder="Repite tu contraseña"
-          />
-        </div>
+        <p v-if="mensaje" class="mensaje">{{ mensaje }}</p>
 
-        <p v-if="mensaje" :class="exito ? 'mensaje-exito' : 'mensaje-error'">
-          {{ mensaje }}
-        </p>
-
-        <button type="submit">Crear cuenta</button>
+        <button type="submit">Registrarse</button>
       </form>
 
-      <p class="login">
+      <p class="login-link">
         ¿Ya tienes una cuenta?
         <RouterLink to="/">Inicia sesión</RouterLink>
       </p>
@@ -97,12 +97,12 @@ const registrarUsuario = () => {
   justify-content: center;
   align-items: center;
   background: #f4f6f5;
-  padding: 30px 20px;
+  padding: 20px;
 }
 
 .registro-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 420px;
   background: white;
   padding: 40px;
   border-radius: 16px;
@@ -111,7 +111,7 @@ const registrarUsuario = () => {
 
 .icono {
   text-align: center;
-  font-size: 42px;
+  font-size: 45px;
 }
 
 h1 {
@@ -123,11 +123,11 @@ h1 {
 .subtitulo {
   text-align: center;
   color: #6b7280;
-  margin-bottom: 28px;
+  margin-bottom: 30px;
 }
 
 .campo {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 label {
@@ -167,26 +167,25 @@ button:hover {
   background: #24543e;
 }
 
-.mensaje-error {
+.mensaje {
   color: #b42318;
   font-size: 14px;
+  margin-bottom: 15px;
 }
 
-.mensaje-exito {
-  color: #2f6b4f;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.login {
+.login-link {
   text-align: center;
   margin-top: 22px;
   color: #6b7280;
 }
 
-.login a {
+.login-link a {
   color: #2f6b4f;
   font-weight: 600;
   text-decoration: none;
+}
+
+.login-link a:hover {
+  text-decoration: underline;
 }
 </style>
