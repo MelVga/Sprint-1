@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 
 const correo = ref('')
 const contrasena = ref('')
@@ -8,12 +8,31 @@ const mensaje = ref('')
 const router = useRouter()
 
 const iniciarSesion = () => {
-  if (!correo.value || !contrasena.value) {
+  if (!correo.value.trim() || !contrasena.value.trim()) {
     mensaje.value = 'Por favor, completa todos los campos.'
     return
   }
 
-  // En este primer Sprint se simula el acceso del usuario.
+  if (!correo.value.includes('@')) {
+    mensaje.value = 'Por favor, ingresa un correo válido.'
+    return
+  }
+
+  // Obtenemos la lista de usuarios registrados en localStorage
+  const usuariosGuardados = JSON.parse(localStorage.getItem('usuarios_despensa')) || []
+
+  // Validamos si existe el usuario con el correo y contraseña correctos
+  const usuarioEncontrado = usuariosGuardados.find(
+    (u) => u.correo.toLowerCase() === correo.value.trim().toLowerCase() && u.contrasena === contrasena.value
+  )
+
+  if (!usuarioEncontrado) {
+    mensaje.value = 'Correo o contraseña incorrectos. Verifica tus datos o regístrate.'
+    return
+  }
+
+  // Guardamos la sesión activa y redirigimos a la vista de inicio
+  localStorage.setItem('usuario_activo', JSON.stringify(usuarioEncontrado))
   router.push('/inicio')
 }
 </script>
@@ -135,6 +154,7 @@ button:hover {
 .mensaje {
   color: #b42318;
   font-size: 14px;
+  margin-bottom: 15px;
 }
 
 .registro {
@@ -147,5 +167,9 @@ button:hover {
   color: #2f6b4f;
   font-weight: 600;
   text-decoration: none;
+}
+
+.registro a:hover {
+  text-decoration: underline;
 }
 </style>
