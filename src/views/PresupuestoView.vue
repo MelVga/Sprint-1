@@ -16,7 +16,13 @@ const mensaje = ref('')
 
 onMounted(() => {
   presupuesto.value = obtenerPresupuesto()
-  productos.value = obtenerProductos()
+
+  // Mantenemos la estructura e inicializamos el contador de rotación en 0 si no existe
+  const productosBD = obtenerProductos()
+  productos.value = productosBD.map((p) => ({
+    ...p,
+    vecesComprado: p.vecesComprado || 0,
+  }))
 })
 
 const guardarPresupuesto = () => {
@@ -72,18 +78,33 @@ const disponibleFormateado = computed(() => {
 const porcentajePresupuesto = computed(() => {
   if (presupuesto.value <= 0) return 0
 
-  return Math.min(
-    (gastosRegistrados.value / presupuesto.value) * 100,
-    100
-  )
+  return Math.min((gastosRegistrados.value / presupuesto.value) * 100, 100)
 })
 
 // Detecta si los gastos superan el presupuesto
 const presupuestoExcedido = computed(() => {
-  return (
-    presupuesto.value > 0 &&
-    gastosRegistrados.value > presupuesto.value
-  )
+  return presupuesto.value > 0 && gastosRegistrados.value > presupuesto.value
+})
+
+// HU-10: Resumen gráfico de presupuesto planeado vs. gasto real acumulado
+const maximoGrafica = computed(() => {
+  return Math.max(presupuesto.value, gastosRegistrados.value, 1)
+})
+
+const alturaPresupuesto = computed(() => {
+  return (presupuesto.value / maximoGrafica.value) * 100
+})
+
+const alturaGastos = computed(() => {
+  return (gastosRegistrados.value / maximoGrafica.value) * 100
+})
+
+// LÓGICA DE MAYOR ROTACIÓN: Ordena descendentemente según el número de compras/reabastecimientos
+const productosMayorRotacion = computed(() => {
+  return [...productos.value]
+    .filter((p) => (p.vecesComprado || 0) > 0)
+    .sort((a, b) => (b.vecesComprado || 0) - (a.vecesComprado || 0))
+    .slice(0, 5) // Muestra el Top 5
 })
 
 const volverInicio = () => {
@@ -146,39 +167,127 @@ const volverInicio = () => {
         <h3>Resumen del mes</h3>
 
         <div class="datos">
-  <div>
-    <p>Presupuesto</p>
-    <strong>{{ presupuestoFormateado }}</strong>
-  </div>
+          <div>
+            <p>Presupuesto</p>
+            <strong>{{ presupuestoFormateado }}</strong>
+          </div>
 
-  <div>
-    <p>Gastos registrados</p>
-    <strong>{{ gastosFormateados }}</strong>
-  </div>
+          <div>
+            <p>Gastos registrados</p>
+            <strong>{{ gastosFormateados }}</strong>
+          </div>
 
-  <div>
-    <p>Disponible</p>
-    <strong>{{ disponibleFormateado }}</strong>
-  </div>
-</div>
+          <div>
+            <p>Disponible</p>
+            <strong>{{ disponibleFormateado }}</strong>
+          </div>
+        </div>
 
-<div class="presupuesto-progreso">
-  <div class="barra-fondo">
-    <div
-      class="barra-progreso"
-      :class="{ excedido: presupuestoExcedido }"
-      :style="{ width: porcentajePresupuesto + '%' }"
-    ></div>
-  </div>
+        <div class="presupuesto-progreso">
+          <div class="barra-fondo">
+            <div
+              class="barra-progreso"
+              :class="{ excedido: presupuestoExcedido }"
+              :style="{ width: porcentajePresupuesto + '%' }"
+            ></div>
+          </div>
 
-  <p class="porcentaje">
-    {{ porcentajePresupuesto.toFixed(0) }}% del presupuesto utilizado
-  </p>
+          <p class="porcentaje">
+            {{ porcentajePresupuesto.toFixed(0) }}% del presupuesto utilizado
+          </p>
 
-  <p v-if="presupuestoExcedido" class="alerta-presupuesto">
-    ⚠️ Has excedido el presupuesto establecido.
-  </p>
-</div>
+          <p v-if="presupuestoExcedido" class="alerta-presupuesto">
+            ⚠️ Has excedido el presupuesto establecido.
+          </p>
+        </div>
+      </section>
+
+      <!-- HU-10: Resumen gráfico de consumo -->
+      <section class="grafica-card">
+        <div class="grafica-header">
+          <h3>Resumen gráfico de consumo</h3>
+          <p class="subtexto">
+            Comparación entre el presupuesto planeado y el gasto real acumulado
+          </p>
+        </div>
+
+        <div v-if="presupuesto <= 0" class="sin-datos-grafica">
+          <p>Establece un presupuesto para visualizar la comparación.</p>
+        </div>
+
+        <div v-else class="grafica-contenedor">
+          <div class="grafica-barras">
+            <div class="columna-grafica">
+              <span class="valor-grafica">{{ presupuestoFormateado }}</span>
+
+              <div class="barra-vertical-fondo">
+                <div
+                  class="barra-vertical presupuesto-barra"
+                  :style="{ height: alturaPresupuesto + '%' }"
+                ></div>
+              </div>
+
+              <strong>Presupuesto planeado</strong>
+            </div>
+
+            <div class="columna-grafica">
+              <span class="valor-grafica">{{ gastosFormateados }}</span>
+
+              <div class="barra-vertical-fondo">
+                <div
+                  class="barra-vertical gasto-barra"
+                  :class="{ excedido: presupuestoExcedido }"
+                  :style="{ height: alturaGastos + '%' }"
+                ></div>
+              </div>
+
+              <strong>Gasto real acumulado</strong>
+            </div>
+          </div>
+
+          <p class="interpretacion-grafica">
+            {{
+              gastosRegistrados > presupuesto
+                ? 'El gasto real acumulado supera el presupuesto planeado.'
+                : gastosRegistrados === presupuesto
+                  ? 'El gasto real acumulado ha alcanzado el total del presupuesto planeado.'
+                  : 'El gasto real acumulado se mantiene dentro del presupuesto planeado.'
+            }}
+          </p>
+        </div>
+      </section>
+
+      <section class="rotacion-card">
+        <div class="rotacion-header">
+          <h3>Productos de mayor consumo rápido</h3>
+          <p class="subtexto">Artículos que más se consumen y reabastecen en el hogar</p>
+        </div>
+
+        <div v-if="productosMayorRotacion.length === 0" class="sin-rotacion">
+          <p>Aún no hay compras registradas para calcular la rotación de productos.</p>
+        </div>
+
+        <div v-else class="lista-rotacion">
+          <div v-for="(item, index) in productosMayorRotacion" :key="item.id" class="item-rotacion">
+            <div class="info-producto">
+              <span class="ranking">#{{ index + 1 }}</span>
+              <div>
+                <strong>{{ item.nombre }}</strong>
+                <span class="categoria-badge">{{ item.categoria }}</span>
+              </div>
+            </div>
+
+            <div class="indicador-rotacion">
+              <span
+                class="badge-consumo"
+                :class="{ 'consumo-rapido': (item.vecesComprado || 0) >= 3 }"
+              >
+                {{ (item.vecesComprado || 0) >= 3 ? '⚡ Consumo rápido' : '🔄 Rotación habitual' }}
+              </span>
+              <small>{{ item.vecesComprado }} reabastecimiento(s)</small>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -251,7 +360,8 @@ const volverInicio = () => {
 }
 
 .formulario-card,
-.informacion {
+.informacion,
+.rotacion-card {
   background: white;
   padding: 28px;
   border-radius: 15px;
@@ -260,14 +370,17 @@ const volverInicio = () => {
 }
 
 .formulario-card h2,
-.informacion h3 {
+.informacion h3,
+.rotacion-header h3 {
   margin-top: 0;
   color: #1f2937;
 }
 
-.descripcion {
+.descripcion,
+.subtexto {
   color: #6b7280;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
+  font-size: 14px;
 }
 
 label {
@@ -383,6 +496,175 @@ input {
   font-weight: 600;
 }
 
+/* HU-10: RESUMEN GRÁFICO DE CONSUMO */
+
+.grafica-card {
+  background: white;
+  padding: 28px;
+  border-radius: 15px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.grafica-header h3 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+.sin-datos-grafica {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 25px 0;
+}
+
+.grafica-contenedor {
+  margin-top: 25px;
+}
+
+.grafica-barras {
+  height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 70px;
+  padding: 20px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.columna-grafica {
+  height: 100%;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.barra-vertical-fondo {
+  width: 85px;
+  height: 200px;
+  background: #f3f4f6;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.barra-vertical {
+  width: 100%;
+  min-height: 3px;
+  transition: height 0.4s ease;
+}
+
+.presupuesto-barra {
+  background: #2f6b4f;
+}
+
+.gasto-barra {
+  background: #60a5fa;
+}
+
+.gasto-barra.excedido {
+  background: #dc2626;
+}
+
+.valor-grafica {
+  font-weight: 700;
+  color: #374151;
+  font-size: 14px;
+}
+
+.columna-grafica strong {
+  text-align: center;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.interpretacion-grafica {
+  margin-top: 20px;
+  padding: 12px;
+  background: #f7f8f7;
+  border-radius: 8px;
+  color: #4b5563;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ESTILOS DE MAYOR ROTACIÓN */
+.sin-rotacion {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 15px 0;
+}
+
+.lista-rotacion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-rotacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #f3f4f6;
+}
+
+.info-producto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ranking {
+  font-weight: bold;
+  color: #2f6b4f;
+  font-size: 15px;
+}
+
+.categoria-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  background: #e5e7eb;
+  color: #4b5563;
+  padding: 2px 7px;
+  border-radius: 12px;
+}
+
+.indicador-rotacion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.badge-consumo {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.badge-consumo.consumo-rapido {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.indicador-rotacion small {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 @media (max-width: 650px) {
   .encabezado {
     padding: 18px;
@@ -393,6 +675,16 @@ input {
 
   .datos {
     grid-template-columns: 1fr;
+  }
+
+  .item-rotacion {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .indicador-rotacion {
+    align-items: flex-start;
   }
 }
 </style>
