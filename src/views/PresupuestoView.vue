@@ -16,12 +16,12 @@ const mensaje = ref('')
 
 onMounted(() => {
   presupuesto.value = obtenerPresupuesto()
-  
+
   // Mantenemos la estructura e inicializamos el contador de rotación en 0 si no existe
   const productosBD = obtenerProductos()
-  productos.value = productosBD.map(p => ({
+  productos.value = productosBD.map((p) => ({
     ...p,
-    vecesComprado: p.vecesComprado || 0
+    vecesComprado: p.vecesComprado || 0,
   }))
 })
 
@@ -78,24 +78,31 @@ const disponibleFormateado = computed(() => {
 const porcentajePresupuesto = computed(() => {
   if (presupuesto.value <= 0) return 0
 
-  return Math.min(
-    (gastosRegistrados.value / presupuesto.value) * 100,
-    100
-  )
+  return Math.min((gastosRegistrados.value / presupuesto.value) * 100, 100)
 })
 
 // Detecta si los gastos superan el presupuesto
 const presupuestoExcedido = computed(() => {
-  return (
-    presupuesto.value > 0 &&
-    gastosRegistrados.value > presupuesto.value
-  )
+  return presupuesto.value > 0 && gastosRegistrados.value > presupuesto.value
+})
+
+// HU-10: Resumen gráfico de presupuesto planeado vs. gasto real acumulado
+const maximoGrafica = computed(() => {
+  return Math.max(presupuesto.value, gastosRegistrados.value, 1)
+})
+
+const alturaPresupuesto = computed(() => {
+  return (presupuesto.value / maximoGrafica.value) * 100
+})
+
+const alturaGastos = computed(() => {
+  return (gastosRegistrados.value / maximoGrafica.value) * 100
 })
 
 // LÓGICA DE MAYOR ROTACIÓN: Ordena descendentemente según el número de compras/reabastecimientos
 const productosMayorRotacion = computed(() => {
   return [...productos.value]
-    .filter(p => (p.vecesComprado || 0) > 0)
+    .filter((p) => (p.vecesComprado || 0) > 0)
     .sort((a, b) => (b.vecesComprado || 0) - (a.vecesComprado || 0))
     .slice(0, 5) // Muestra el Top 5
 })
@@ -195,6 +202,61 @@ const volverInicio = () => {
         </div>
       </section>
 
+      <!-- HU-10: Resumen gráfico de consumo -->
+      <section class="grafica-card">
+        <div class="grafica-header">
+          <h3>Resumen gráfico de consumo</h3>
+          <p class="subtexto">
+            Comparación entre el presupuesto planeado y el gasto real acumulado
+          </p>
+        </div>
+
+        <div v-if="presupuesto <= 0" class="sin-datos-grafica">
+          <p>Establece un presupuesto para visualizar la comparación.</p>
+        </div>
+
+        <div v-else class="grafica-contenedor">
+          <div class="grafica-barras">
+            <div class="columna-grafica">
+              <span class="valor-grafica">{{ presupuestoFormateado }}</span>
+
+              <div class="barra-vertical-fondo">
+                <div
+                  class="barra-vertical presupuesto-barra"
+                  :style="{ height: alturaPresupuesto + '%' }"
+                ></div>
+              </div>
+
+              <strong>Presupuesto planeado</strong>
+            </div>
+
+            <div class="columna-grafica">
+              <span class="valor-grafica">{{ gastosFormateados }}</span>
+
+              <div class="barra-vertical-fondo">
+                <div
+                  class="barra-vertical gasto-barra"
+                  :class="{ excedido: presupuestoExcedido }"
+                  :style="{ height: alturaGastos + '%' }"
+                ></div>
+              </div>
+
+              <strong>Gasto real acumulado</strong>
+            </div>
+          </div>
+
+          <p class="interpretacion-grafica">
+            {{
+              gastosRegistrados > presupuesto
+                ? 'El gasto real acumulado supera el presupuesto planeado.'
+                : gastosRegistrados === presupuesto
+                  ? 'El gasto real acumulado ha alcanzado el total del presupuesto planeado.'
+                  : 'El gasto real acumulado se mantiene dentro del presupuesto planeado.'
+            }}
+          </p>
+        </div>
+      </section>
+
       <section class="rotacion-card">
         <div class="rotacion-header">
           <h3>Productos de mayor consumo rápido</h3>
@@ -206,11 +268,7 @@ const volverInicio = () => {
         </div>
 
         <div v-else class="lista-rotacion">
-          <div 
-            v-for="(item, index) in productosMayorRotacion" 
-            :key="item.id" 
-            class="item-rotacion"
-          >
+          <div v-for="(item, index) in productosMayorRotacion" :key="item.id" class="item-rotacion">
             <div class="info-producto">
               <span class="ranking">#{{ index + 1 }}</span>
               <div>
@@ -220,7 +278,7 @@ const volverInicio = () => {
             </div>
 
             <div class="indicador-rotacion">
-              <span 
+              <span
                 class="badge-consumo"
                 :class="{ 'consumo-rapido': (item.vecesComprado || 0) >= 3 }"
               >
@@ -436,6 +494,102 @@ input {
   margin-top: 10px;
   color: #b91c1c;
   font-weight: 600;
+}
+
+/* HU-10: RESUMEN GRÁFICO DE CONSUMO */
+
+.grafica-card {
+  background: white;
+  padding: 28px;
+  border-radius: 15px;
+  margin-bottom: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.grafica-header h3 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+.sin-datos-grafica {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 25px 0;
+}
+
+.grafica-contenedor {
+  margin-top: 25px;
+}
+
+.grafica-barras {
+  height: 300px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 70px;
+  padding: 20px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.columna-grafica {
+  height: 100%;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.barra-vertical-fondo {
+  width: 85px;
+  height: 200px;
+  background: #f3f4f6;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.barra-vertical {
+  width: 100%;
+  min-height: 3px;
+  transition: height 0.4s ease;
+}
+
+.presupuesto-barra {
+  background: #2f6b4f;
+}
+
+.gasto-barra {
+  background: #60a5fa;
+}
+
+.gasto-barra.excedido {
+  background: #dc2626;
+}
+
+.valor-grafica {
+  font-weight: 700;
+  color: #374151;
+  font-size: 14px;
+}
+
+.columna-grafica strong {
+  text-align: center;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.interpretacion-grafica {
+  margin-top: 20px;
+  padding: 12px;
+  background: #f7f8f7;
+  border-radius: 8px;
+  color: #4b5563;
+  font-size: 14px;
+  text-align: center;
 }
 
 /* ESTILOS DE MAYOR ROTACIÓN */
