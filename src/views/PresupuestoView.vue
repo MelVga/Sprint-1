@@ -16,7 +16,13 @@ const mensaje = ref('')
 
 onMounted(() => {
   presupuesto.value = obtenerPresupuesto()
-  productos.value = obtenerProductos()
+  
+  // Mantenemos la estructura e inicializamos el contador de rotación en 0 si no existe
+  const productosBD = obtenerProductos()
+  productos.value = productosBD.map(p => ({
+    ...p,
+    vecesComprado: p.vecesComprado || 0
+  }))
 })
 
 const guardarPresupuesto = () => {
@@ -86,6 +92,14 @@ const presupuestoExcedido = computed(() => {
   )
 })
 
+// LÓGICA DE MAYOR ROTACIÓN: Ordena descendentemente según el número de compras/reabastecimientos
+const productosMayorRotacion = computed(() => {
+  return [...productos.value]
+    .filter(p => (p.vecesComprado || 0) > 0)
+    .sort((a, b) => (b.vecesComprado || 0) - (a.vecesComprado || 0))
+    .slice(0, 5) // Muestra el Top 5
+})
+
 const volverInicio = () => {
   router.push('/inicio')
 }
@@ -146,39 +160,76 @@ const volverInicio = () => {
         <h3>Resumen del mes</h3>
 
         <div class="datos">
-  <div>
-    <p>Presupuesto</p>
-    <strong>{{ presupuestoFormateado }}</strong>
-  </div>
+          <div>
+            <p>Presupuesto</p>
+            <strong>{{ presupuestoFormateado }}</strong>
+          </div>
 
-  <div>
-    <p>Gastos registrados</p>
-    <strong>{{ gastosFormateados }}</strong>
-  </div>
+          <div>
+            <p>Gastos registrados</p>
+            <strong>{{ gastosFormateados }}</strong>
+          </div>
 
-  <div>
-    <p>Disponible</p>
-    <strong>{{ disponibleFormateado }}</strong>
-  </div>
-</div>
+          <div>
+            <p>Disponible</p>
+            <strong>{{ disponibleFormateado }}</strong>
+          </div>
+        </div>
 
-<div class="presupuesto-progreso">
-  <div class="barra-fondo">
-    <div
-      class="barra-progreso"
-      :class="{ excedido: presupuestoExcedido }"
-      :style="{ width: porcentajePresupuesto + '%' }"
-    ></div>
-  </div>
+        <div class="presupuesto-progreso">
+          <div class="barra-fondo">
+            <div
+              class="barra-progreso"
+              :class="{ excedido: presupuestoExcedido }"
+              :style="{ width: porcentajePresupuesto + '%' }"
+            ></div>
+          </div>
 
-  <p class="porcentaje">
-    {{ porcentajePresupuesto.toFixed(0) }}% del presupuesto utilizado
-  </p>
+          <p class="porcentaje">
+            {{ porcentajePresupuesto.toFixed(0) }}% del presupuesto utilizado
+          </p>
 
-  <p v-if="presupuestoExcedido" class="alerta-presupuesto">
-    ⚠️ Has excedido el presupuesto establecido.
-  </p>
-</div>
+          <p v-if="presupuestoExcedido" class="alerta-presupuesto">
+            ⚠️ Has excedido el presupuesto establecido.
+          </p>
+        </div>
+      </section>
+
+      <section class="rotacion-card">
+        <div class="rotacion-header">
+          <h3>Productos de mayor consumo rápido</h3>
+          <p class="subtexto">Artículos que más se consumen y reabastecen en el hogar</p>
+        </div>
+
+        <div v-if="productosMayorRotacion.length === 0" class="sin-rotacion">
+          <p>Aún no hay compras registradas para calcular la rotación de productos.</p>
+        </div>
+
+        <div v-else class="lista-rotacion">
+          <div 
+            v-for="(item, index) in productosMayorRotacion" 
+            :key="item.id" 
+            class="item-rotacion"
+          >
+            <div class="info-producto">
+              <span class="ranking">#{{ index + 1 }}</span>
+              <div>
+                <strong>{{ item.nombre }}</strong>
+                <span class="categoria-badge">{{ item.categoria }}</span>
+              </div>
+            </div>
+
+            <div class="indicador-rotacion">
+              <span 
+                class="badge-consumo"
+                :class="{ 'consumo-rapido': (item.vecesComprado || 0) >= 3 }"
+              >
+                {{ (item.vecesComprado || 0) >= 3 ? '⚡ Consumo rápido' : '🔄 Rotación habitual' }}
+              </span>
+              <small>{{ item.vecesComprado }} reabastecimiento(s)</small>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -251,7 +302,8 @@ const volverInicio = () => {
 }
 
 .formulario-card,
-.informacion {
+.informacion,
+.rotacion-card {
   background: white;
   padding: 28px;
   border-radius: 15px;
@@ -260,14 +312,17 @@ const volverInicio = () => {
 }
 
 .formulario-card h2,
-.informacion h3 {
+.informacion h3,
+.rotacion-header h3 {
   margin-top: 0;
   color: #1f2937;
 }
 
-.descripcion {
+.descripcion,
+.subtexto {
   color: #6b7280;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
+  font-size: 14px;
 }
 
 label {
@@ -383,6 +438,79 @@ input {
   font-weight: 600;
 }
 
+/* ESTILOS DE MAYOR ROTACIÓN */
+.sin-rotacion {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 15px 0;
+}
+
+.lista-rotacion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-rotacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #f3f4f6;
+}
+
+.info-producto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ranking {
+  font-weight: bold;
+  color: #2f6b4f;
+  font-size: 15px;
+}
+
+.categoria-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  background: #e5e7eb;
+  color: #4b5563;
+  padding: 2px 7px;
+  border-radius: 12px;
+}
+
+.indicador-rotacion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.badge-consumo {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.badge-consumo.consumo-rapido {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.indicador-rotacion small {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 @media (max-width: 650px) {
   .encabezado {
     padding: 18px;
@@ -393,6 +521,16 @@ input {
 
   .datos {
     grid-template-columns: 1fr;
+  }
+
+  .item-rotacion {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .indicador-rotacion {
+    align-items: flex-start;
   }
 }
 </style>
