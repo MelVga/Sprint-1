@@ -1,7 +1,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { gastosDelMes, formatearMXN, mesDeFecha } from '@/services/operaciones.js'
+
+import {
+  gastosDelMes,
+  formatearMXN,
+  mesDeFecha,
+  filtrarComprasPorMes,
+  gastosPorCategoria,
+} from '@/services/operaciones.js'
+
 import {
   obtenerProductos,
   obtenerCompras,
@@ -48,12 +56,29 @@ const presupuestoFormateado = computed(() => formatearMXN(presupuesto.value))
 // HU-10: únicamente compras efectivamente registradas durante el mes en curso.
 // Los productos agotados representan una compra pendiente, no un gasto realizado.
 const gastosRegistrados = computed(() => gastosDelMes(compras.value))
-const comprasDelMes = computed(() => compras.value
-  .filter((compra) => {
-    try { return mesDeFecha(compra.fecha) === mesDeFecha() } catch { return false }
-  })
-  .sort((a, b) => new Date(b.fecha) - new Date(a.fecha)))
+// Sprint 6 - HU-S6-01: Consulta avanzada del historial
+const mesSeleccionado = ref(mesDeFecha())
+const mostrarTodasCompras = ref(false)
+
+const comprasFiltradas = computed(() =>
+  filtrarComprasPorMes(compras.value, mesSeleccionado.value, mostrarTodasCompras.value),
+)
+
 const formatearFecha = (fecha) => new Date(fecha).toLocaleDateString('es-MX')
+// Sprint 6 - HU-S6-02: Reporte mensual por categoría
+const mesReporte = ref(mesDeFecha())
+
+const reporteCategorias = computed(() =>
+  gastosPorCategoria(compras.value, productos.value, mesReporte.value),
+)
+
+const totalReporte = computed(() =>
+  reporteCategorias.value.reduce((suma, categoria) => suma + categoria.total, 0),
+)
+
+const maximoReporte = computed(() =>
+  Math.max(1, ...reporteCategorias.value.map((categoria) => categoria.total)),
+)
 
 // Calcula cuánto dinero queda disponible
 const disponible = computed(() => {
@@ -195,14 +220,43 @@ const volverInicio = () => {
       </section>
 
       <section class="historial-card">
-        <h3>Compras registradas este mes</h3>
-        <p class="subtexto">Únicamente se incluyen compras confirmadas desde la lista del súper.</p>
-        <p v-if="comprasDelMes.length === 0" class="subtexto">Todavía no hay compras registradas este mes.</p>
+        <h3>Historial de compras</h3>
+
+        <p class="subtexto">Consulta las compras confirmadas desde la lista del súper.</p>
+
+        <div class="filtros-historial">
+          <label for="mes-historial">Selecciona un mes:</label>
+
+          <input
+            id="mes-historial"
+            v-model="mesSeleccionado"
+            type="month"
+            :disabled="mostrarTodasCompras"
+          />
+
+          <label class="opcion-todas">
+            <input v-model="mostrarTodasCompras" type="checkbox" />
+            Ver todas las compras
+          </label>
+        </div>
+
+        <p v-if="comprasFiltradas.length === 0" class="subtexto">
+          No hay compras registradas para el periodo seleccionado.
+        </p>
+
         <div v-else class="historial-scroll">
           <table class="historial-tabla">
-            <thead><tr><th>Fecha</th><th>Producto</th><th>Unidades</th><th>Importe</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Unidades</th>
+                <th>Importe</th>
+              </tr>
+            </thead>
+
             <tbody>
-              <tr v-for="compra in comprasDelMes" :key="compra.id">
+              <tr v-for="compra in comprasFiltradas" :key="compra.id">
                 <td>{{ formatearFecha(compra.fecha) }}</td>
                 <td>{{ compra.nombre }}</td>
                 <td>{{ compra.cantidad }}</td>
@@ -212,13 +266,58 @@ const volverInicio = () => {
           </table>
         </div>
       </section>
+      <!-- Sprint 6 - HU-S6-02: Reportes de gastos -->
+      <section class="reporte-categorias">
+        <h3>Reporte de gastos por categoría</h3>
 
+        <p class="subtexto">
+          Consulta cuánto has gastado en cada categoría de productos durante el mes seleccionado.
+        </p>
+
+        <div class="filtros-reporte">
+          <label for="mes-reporte">Selecciona un mes:</label>
+
+          <input id="mes-reporte" v-model="mesReporte" type="month" />
+        </div>
+
+        <div class="resumen-reporte">
+          <span>Total gastado en el periodo</span>
+          <strong>{{ formatearMXN(totalReporte) }}</strong>
+        </div>
+
+        <p v-if="reporteCategorias.length === 0" class="subtexto">
+          No hay gastos registrados para este periodo.
+        </p>
+
+        <div v-else class="lista-categorias">
+          <div
+            v-for="categoria in reporteCategorias"
+            :key="categoria.categoria"
+            class="categoria-item"
+          >
+            <div class="categoria-info">
+              <strong>{{ categoria.categoria }}</strong>
+              <span>{{ formatearMXN(categoria.total) }}</span>
+            </div>
+
+            <div class="barra-fondo">
+              <div
+                class="barra-gasto"
+                :style="{
+                  width: (categoria.total / maximoReporte) * 100 + '%',
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </section>
       <!-- HU-10: Resumen gráfico de consumo -->
       <section class="grafica-card">
         <div class="grafica-header">
           <h3>Resumen gráfico de consumo</h3>
           <p class="subtexto">
-            Comparación entre el presupuesto planeado y las compras registradas durante el mes actual.
+            Comparación entre el presupuesto planeado y las compras registradas durante el mes
+            actual.
           </p>
         </div>
 
@@ -509,11 +608,28 @@ input {
 }
 
 /* Compras confirmadas */
-.historial-card h3 { margin-top: 0; color: #1f2937; }
-.historial-scroll { overflow-x: auto; }
-.historial-tabla { border-collapse: collapse; width: 100%; min-width: 490px; }
-.historial-tabla th, .historial-tabla td { padding: 12px 9px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-.historial-tabla th { color: #4b5563; font-size: 13px; }
+.historial-card h3 {
+  margin-top: 0;
+  color: #1f2937;
+}
+.historial-scroll {
+  overflow-x: auto;
+}
+.historial-tabla {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 490px;
+}
+.historial-tabla th,
+.historial-tabla td {
+  padding: 12px 9px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+.historial-tabla th {
+  color: #4b5563;
+  font-size: 13px;
+}
 
 /* HU-10: RESUMEN GRÁFICO DE CONSUMO */
 
@@ -695,14 +811,40 @@ input {
   .datos {
     grid-template-columns: 1fr;
   }
-  .contenido { padding: 20px 12px; }
-  .formulario-card, .informacion, .grafica-card, .rotacion-card, .historial-card { padding: 18px 14px; }
-  .resumen h2 { font-size: 29px; overflow-wrap: anywhere; }
-  .grafica-barras { gap: 10px; padding: 12px 4px; height: 280px; }
-  .columna-grafica { min-width: 0; width: 48%; }
-  .barra-vertical-fondo { width: min(75px, 90%); }
-  .valor-grafica { font-size: 12px; overflow-wrap: anywhere; text-align: center; }
-  .datos strong { overflow-wrap: anywhere; }
+  .contenido {
+    padding: 20px 12px;
+  }
+  .formulario-card,
+  .informacion,
+  .grafica-card,
+  .rotacion-card,
+  .historial-card {
+    padding: 18px 14px;
+  }
+  .resumen h2 {
+    font-size: 29px;
+    overflow-wrap: anywhere;
+  }
+  .grafica-barras {
+    gap: 10px;
+    padding: 12px 4px;
+    height: 280px;
+  }
+  .columna-grafica {
+    min-width: 0;
+    width: 48%;
+  }
+  .barra-vertical-fondo {
+    width: min(75px, 90%);
+  }
+  .valor-grafica {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  .datos strong {
+    overflow-wrap: anywhere;
+  }
 
   .item-rotacion {
     flex-direction: column;
@@ -712,6 +854,143 @@ input {
 
   .indicador-rotacion {
     align-items: flex-start;
+  }
+}
+/* Sprint 6 - Filtros del historial de compras */
+
+.filtros-historial {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.filtros-historial > label[for='mes-historial'] {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+
+.filtros-historial input[type='month'] {
+  width: 180px;
+  max-width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.filtros-historial .opcion-todas {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  gap: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filtros-historial .opcion-todas input[type='checkbox'] {
+  display: inline-block;
+  appearance: auto;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 18px;
+  cursor: pointer;
+}
+/* Sprint 6 - Reportes de gastos por categoría */
+
+.reporte-categorias {
+  background: white;
+  border-radius: 16px;
+  padding: 28px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+}
+
+.reporte-categorias h3 {
+  margin-top: 0;
+  color: #1f2937;
+}
+
+.filtros-reporte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.filtros-reporte label {
+  width: auto;
+  margin: 0;
+}
+
+.filtros-reporte input[type='month'] {
+  width: 190px;
+  max-width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.resumen-reporte {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f0fdf4;
+  padding: 18px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+
+.resumen-reporte strong {
+  color: #166534;
+  font-size: 24px;
+}
+
+.lista-categorias {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.categoria-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.barra-fondo {
+  width: 100%;
+  height: 16px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.barra-gasto {
+  height: 100%;
+  background: #2f6b4f;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 600px) {
+  .reporte-categorias {
+    padding: 18px 14px;
   }
 }
 </style>
