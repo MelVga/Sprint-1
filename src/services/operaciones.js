@@ -29,6 +29,7 @@ export const crearCompra = (producto, cantidad, fecha = new Date()) => {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     productoId: producto.id,
     nombre: producto.nombre,
+    categoria: String(producto.categoria ?? '').trim() || 'Sin categoría',
     cantidad: unidades,
     precioUnitario: redondearDinero(precioUnitario),
     total: redondearDinero(unidades * precioUnitario),
@@ -48,6 +49,59 @@ export const gastosDelMes = (compras, mes = mesDeFecha()) => {
       })
       .reduce((suma, compra) => suma + (Number(compra.total) || 0), 0),
   )
+}
+
+// Sprint 6 - HU-S6-01: Filtrado del historial de compras
+export const filtrarComprasPorMes = (compras, mes = mesDeFecha(), mostrarTodas = false) => {
+  if (!Array.isArray(compras)) return []
+
+  return compras
+    .filter((compra) => {
+      if (mostrarTodas) return true
+
+      try {
+        return mesDeFecha(compra.fecha) === mes
+      } catch {
+        return false
+      }
+    })
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+}
+
+// Sprint 6 - HU-S6-02: Reporte de gastos por categoría
+export const gastosPorCategoria = (compras, productos = [], mes = mesDeFecha()) => {
+  const catalogo = new Map(
+    (Array.isArray(productos) ? productos : [])
+      .filter((producto) => producto?.id != null)
+      .map((producto) => [String(producto.id), producto.categoria]),
+  )
+
+  const acumulados = new Map()
+
+  const comprasDelPeriodo = filtrarComprasPorMes(compras, mes)
+
+  for (const compra of comprasDelPeriodo) {
+    // Recupera la categoría del inventario para compras antiguas
+    const categoriaGuardada = String(compra.categoria ?? '').trim()
+    const categoriaInventario = String(catalogo.get(String(compra.productoId)) ?? '').trim()
+
+    const categoria = categoriaGuardada || categoriaInventario || 'Sin categoría'
+
+    const importe = Number(compra.total)
+
+    if (!Number.isFinite(importe) || importe < 0) continue
+
+    const acumulado = acumulados.get(categoria) || 0
+
+    acumulados.set(categoria, redondearDinero(acumulado + importe))
+  }
+
+  return [...acumulados.entries()]
+    .map(([categoria, total]) => ({
+      categoria,
+      total,
+    }))
+    .sort((a, b) => b.total - a.total)
 }
 
 export const resumenDespensa = (productos, presupuesto, compras, mes = mesDeFecha()) => ({
