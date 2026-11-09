@@ -53,4 +53,4 @@ A lo largo del ciclo de vida del proyecto bajo la metodología Scrum, se desarro
 ---
 
 ##  5. Enlaces de Acceso y Producción
-* **Aplicación en Línea:** [Ver Aplicación en Producción (GitHub Pages)](}https://melvga.github.io/Sprint-1/#/)
+* **Aplicación en Línea:** [Ver Aplicación en Producción (GitHub Pages)](https://melvga.github.io/Sprint-1/#/)
