@@ -8,9 +8,16 @@ export const mesDeFecha = (fecha = new Date()) => {
   return `${valor.getFullYear()}-${String(valor.getMonth() + 1).padStart(2, '0')}`
 }
 
+// Solo letras (con acentos, ñ, ü), espacios, guiones, apóstrofos y puntos. Sin números.
+const SOLO_LETRAS = /^[\p{L}][\p{L}\s.'-]*$/u
+
+export const nombreSoloLetras = (nombre) => SOLO_LETRAS.test(String(nombre ?? '').trim())
+
 export const validarProducto = ({ nombre, categoria, cantidad, precio }) => {
   if (!String(nombre ?? '').trim() || !String(categoria ?? '').trim())
     return 'Completa el nombre y la categoría.'
+  if (!nombreSoloLetras(nombre))
+    return 'El nombre del producto solo puede contener letras, sin números.'
   if (!Number.isInteger(Number(cantidad)) || Number(cantidad) < 1 || cantidad === '')
     return 'La cantidad debe ser un número entero mayor que cero.'
   if (precio === '' || !Number.isFinite(Number(precio)) || Number(precio) < 0)
